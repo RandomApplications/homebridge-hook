@@ -1,37 +1,22 @@
-# homebridge-ifttt
-Homebridge plugin for IFTTT Maker Channel
+# homebridge-hook
+[Hook](http://hooksmarthome.com) platform plugin for [Homebridge](https://github.com/nfarina/homebridge)
 
 # Installation
-Follow the instruction in [homebridge](https://www.npmjs.com/package/homebridge) for the
-homebridge server installation.
-The plugin is published through [NPM](https://www.npmjs.com/package/homebridge-ifttt) and
-should be installed "globally" by typing:
+Follow the instruction in [Homebridge](https://www.npmjs.com/package/homebridge) for the Homebridge server installation. The plugin is published through [NPM](https://www.npmjs.com/package/homebridge-hook) and should be installed "globally" by typing:
 
-    npm install -g homebridge-ifttt
+	npm install -g homebridge-hook
 
-# Configuration
-Remember to configure the plugin in config.json in your home directory inside the
-.homebridge directory.
+# Configuration & Usage
+This plugin needs to be configured in the `config.json` file in the `.homebridge` folder, which is created inside of your Home folder after installing Homebridge. If you haven't created this file already, you will need to do so. On macOS and Linux, the full path for your `config.json` file would be `~/.homebridge/config.json`.
 
-Look for a sample config in 
-[config.json example](https://github.com/ilcato/homebridge-ifttt/blob/master/config.json).
+Configuration is super simple! This plugin can load your Hook's Devices and Groups automatically by entering your Hook Username and Password into the `hookUsername` and `hookPassword` fields in the `config.json` file. Or, you can enter your Hook Token manually into the `hookToken` field in the `config.json` file. To see exactly how to enter these fields in your `config.json` file, check out this [`example-config.json`](https://github.com/RandomApplications/homebridge-hook/blob/master/example-config.json) file.
 
+Devices and Groups are both supported and Custom Action Names are supported for Devices. Unfortunately, using Custom Action Names may cause the On and Off actions to be switched around. This can't be fixed without an update to the Hook API. For best results, just use the default On and Off action names in Hook.
 
-See [IFTTT Maker Channel](https://ifttt.com/maker) for an explanation on how to configure
-an IFTTT recipe with a Maker Channel.
+Any Device or Group with a name containing the word "lamp", "light", "lights", or "lighting" will be set to the type "Light" in HomeKit. Any Device or Group with a name containing the word "fan" will be set to the type "Fan" in HomeKit. Everything else will default to the type "Switch" in HomeKit. From within HomeKit, accessories that are created with the "Switch" type can be changed to a "Light" or a "Fan" if you desire, but the accessories that start out as a "Light" or a "Fan" (because of the name matches mentioned above) cannot have their types changed in HomeKit.
 
-You need to put the IFTTT Maker channel key in the configuration file and define a set of
-Buttons.
+If you make any changes to your Hook after you've launched Homebridge (eg. adding new Devices or Groups, or changing any Device, Group, or Action names), you must relaunch Homebridge (and this plugin) for the changes to appear in HomeKit.
 
-If you specify both "triggerOn" and "triggerOff" values to a button configuration it will
-generate different triggers for the two different status of the switch.
+When Homebridge is relaunched after a Device or Group name has been changed in Hook, the old Device or Group will be removed from HomeKit and the renamed Device or Group will be added to HomeKit as a new accessory with the new name. This means that if you set the accessory's Location in HomeKit it will be reset to Default Room, and the accessory will be removed from any Automation.
 
-If you only specify the "trigger" value to a button configuration it will behave like a
-push button generating the trigger after the selection of the button and automatically
-returning to the off status.
-
-
-Every button, once pressed with an Homekit app or via Siri, will generate an IFTTT trigger
-on the Maker channel.
-
-
+If your Hook Token has been reset and you've entered your Hook Token manually into the `config.json` file, you'll need to update it in the `config.json` file before relaunching Homebridge. If you've configured the plugin with your Hook Username and Password you'll just need to relaunch Homebridge so the plugin can retrieve your new token automatically.
