@@ -1,0 +1,25 @@
+{
+	"bridge": {
+		"name": "Homebridge",
+		"manufacturer": "Homebridge",
+		"serialNumber": "Homebridge",
+		"model": "Homebridge",
+		"username": "CC:22:3D:E3:CE:30",
+		"port": 51826,
+		"pin": "031-45-154"
+	},
+
+	"description": "Homebridge configuration for Hook.",
+
+	"platforms": [
+		{
+			"platform": "Hook",
+			"name": "Hook",
+			"hookUsername": "ENTER HOOK USERNAME HERE - REMOVE OR LEAVE BLANK IF USING hookToken",
+			"hookPassword": "ENTER HOOK PASSWORD HERE - REMOVE OR LEAVE BLANK IF USING hookToken",
+			"hookToken": "ENTER HOOK TOKEN HERE - REMOVE OR LEAVE BLANK IF USING hookUsername AND hookPassword"
+		}
+	],
+
+	"accessories": []
+}
