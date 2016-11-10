@@ -1,34 +1,33 @@
 {
-  "name": "homebridge-ifttt",
-  "version": "0.1.4",
-  "description": "Homebridge plugin for IFTTT Maker Channel",
-  "note": "peerDependencies is hardcoded to peerDepdendencies in homebridge!!!",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "echo \"Error: configure and run homebridge to start\" && exit 1"
-  },
-  "engines": {
-    "node": ">4.0.0",
-    "homebridge": ">=0.2.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/ilcato/homebridge-ifttt.git"
-  },
-  "keywords": [
-    "homebridge-plugin",
-    "IFTTT",
-    "Maker",
-    "Siri"
-  ],
-  "dependencies": {
-    "request": "^2.65.0"
-  },
-  "author": "ilcato",
-  "license": "GPL2",
-  "bugs": {
-    "url": "https://github.com/ilcato/homebridge-ifttt/issues"
-  },
-  "homepage": "https://github.com/ilcato/ifttt"
+	"name": "homebridge-hook",
+	"version": "1.0.0",
+	"description": "Hook (http://hooksmarthome.com) platform plugin for Homebridge (https://github.com/nfarina/homebridge)",
+	"main": "index.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"start": "echo \"Error: configure and run homebridge to start\" && exit 1"
+	},
+	"engines": {
+		"node": ">4.0.0",
+		"homebridge": ">=0.2.0"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/RandomApplications/homebridge-hook.git"
+	},
+	"keywords": [
+		"homebridge-plugin",
+		"Hook",
+		"HomeKit",
+		"Siri"
+	],
+	"dependencies": {
+		"request": "^2.65.0"
+	},
+	"author": "RandomApplications",
+	"license": "GPL2",
+	"bugs": {
+		"url": "https://github.com/RandomApplications/homebridge-hook/issues"
+	},
+	"homepage": "https://github.com/RandomApplications/homebridge-hook"
 }
