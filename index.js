@@ -43,29 +43,37 @@ HookPlatform.prototype = {
 			};
 		}
 
-		this.hookPassword = null; // Nullify reference to password.
+		this.hookUsername = null; // Nullify global reference to username.
+		this.hookPassword = null; // Nullify global reference to password.
+
 		var platform = this;
 		var allTokens = [];
 
 		request.post(loginURL, function (loginError, loginResponse, loginBody)
 		{
-			if (!loginError && loginResponse && loginResponse.statusCode == 200 &&
-				loginBody && !loginBody.includes('"data":{"message":'))
+			if (!loginError && loginResponse && loginResponse.statusCode == 200 && loginBody)
 			{
-				var userAccessTokenMatches = loginBody.match(/\{"token":"(.*?)",/g);
-
-				if (userAccessTokenMatches && userAccessTokenMatches.length > 0)
-					for (var t = 0; t < userAccessTokenMatches.length; t ++)
+				try
+				{
+					var loginObject = JSON.parse(loginBody);
+					if (loginObject.data && loginObject.data.token && loginObject.data.name)
 					{
-						var thisUserAccessToken = userAccessTokenMatches[t].substring(10).slice(0, -2);
-						platform.log('Got User Access Token for "' + platform.hookUsername + '": ' + thisUserAccessToken);
+						var thisUserAccessToken = loginObject.data.token;
+						platform.log('Got User Access Token for "' + loginObject.data.name + '": ' + thisUserAccessToken);
 						allTokens.push(thisUserAccessToken);
 					}
+					else
+						platform.logRequestErrorMessages('Login', null, null, loginBody);
+				}
+				catch (jsonLoginError)
+				{
+					platform.logRequestErrorMessages('Login', jsonLoginError, null, loginBody);
+				}
 			}
 			else if (loginURL)
 				platform.logRequestErrorMessages('Login', loginError, loginResponse, loginBody);
 
-			loginURL = null; // Nullify reference to password.
+			loginURL = null; // Nullify local reference to login (containing username and password).
 
 			if (platform.hookToken)
 			{
@@ -77,6 +85,8 @@ HookPlatform.prototype = {
 					allTokens.push(thisHookToken);
 				}
 			}
+
+			platform.hookToken = null; // Nullify global reference to token.
 
 			if (allTokens.length > 0)
 			{
@@ -93,51 +103,82 @@ HookPlatform.prototype = {
 					{
 						var devicesAccessToken = (getDevicesResponse ? getDevicesResponse.request.uri.href.split('token=')[1] : null);
 
-						if (!getDevicesError && getDevicesResponse && getDevicesResponse.statusCode == 200 &&
-							getDevicesBody && !getDevicesBody.includes('"data":{"message":'))
+						if (!getDevicesError && getDevicesResponse && getDevicesResponse.statusCode == 200 && getDevicesBody)
 						{
-							var deviceIDMatches = getDevicesBody.match(/,"device_id":"(.*?)",/g);
-
-							if (deviceIDMatches && deviceIDMatches.length > 0)
+							try
 							{
-								var deviceNameMatches = getDevicesBody.match(/,"device_name":"(.*?)",/g);
-								var deviceActionMatches = getDevicesBody.match(/,"actions":\[(.*?)]/g);
-
-								for (var d = 0; d < deviceIDMatches.length; d ++)
+								var devicesObject = JSON.parse(getDevicesBody);
+								var devicesLists = devicesObject.data;
+								if (devicesLists && Array.isArray(devicesLists) && devicesLists.length > 0)
 								{
-									var thisDeviceID = deviceIDMatches[d].substring(14).slice(0, -2);
-									var thisDeviceName = deviceNameMatches[d].substring(16).slice(0, -2);
-
-									var thisDeviceActions = deviceActionMatches[d];
-									var actionIDMatches = thisDeviceActions.match(/\{"deviceActionId":"(.*?)",/g);
-									var actionNameMatches = thisDeviceActions.match(/,"action_name":"(.*?)"}/g);
-									var actionIDsForNames = {};
-									for (var a = 0; a < actionIDMatches.length; a ++)
+									for (var l = 0; l < devicesLists.length; l ++)
 									{
-										var thisActionID = actionIDMatches[a].substring(19).slice(0, -2);
-										var thisActionName = actionNameMatches[a].substring(16).slice(0, -2);
+										var thisDevicesList = devicesLists[l];
+										if (Array.isArray(thisDevicesList) && thisDevicesList.length > 0)
+										{
+											for (var d = 0; d < thisDevicesList.length; d ++)
+											{
+												var thisDeviceObject = thisDevicesList[d];
+												var thisDeviceID = thisDeviceObject.device_id;
+												var thisDeviceName = thisDeviceObject.device_name;
+												var thisDeviceActions = thisDeviceObject.actions;
 
-										actionIDsForNames[thisActionID] = thisActionName;
+												if (thisDeviceActions && Array.isArray(thisDeviceActions) && thisDeviceActions.length > 0)
+												{
+													var onActionName = null;
+													var offActionName = null;
+
+													if (thisDeviceActions.length == 1)
+													{
+														var onlyActionName = thisDeviceActions[0].action_name;
+														onActionName = onlyActionName;
+														offActionName = onlyActionName;
+													}
+													else
+													{
+														var leftoverActionNames = [];
+														for (var a = 0; a < thisDeviceActions.length; a ++)
+														{
+															var thisActionName = thisDeviceActions[a].action_name;
+															var lowercaseActionName = thisActionName.toLowerCase();
+
+															if (lowercaseActionName == 'on')
+																onActionName = thisActionName;
+															else if (lowercaseActionName == 'off')
+																offActionName = thisActionName;
+															else
+																leftoverActionNames.push(thisActionName);
+														}
+
+														if (onActionName == null)
+														{
+															onActionName = leftoverActionNames[0];
+
+															if (offActionName == null)
+																offActionName = leftoverActionNames[1];
+														}
+														else if (offActionName == null)
+															offActionName = leftoverActionNames[0];
+													}
+
+													platform.addAccessory(thisDeviceID, thisDeviceName, 'device', onActionName, offActionName, devicesAccessToken);
+												}
+												else
+													platform.logRequestErrorMessages('Add Accessory', null, null,
+														'Device Has No Actions "' + thisDeviceName + '" (' + thisDeviceID + ')');
+											}
+										}
+										else
+											platform.log("No Devices: You haven't added any Devices to Hook (" + devicesAccessToken + ").");
 									}
-
-									// Wishing this would sort them properly, but it doesn't always for custom action names.
-									var actionIDs = Object.keys(actionIDsForNames).sort();
-
-									var onActionName = actionIDsForNames[actionIDs[0]];
-									var offActionName = actionIDsForNames[actionIDs[1]];
-
-									if (onActionName.toLowerCase() == 'off' || offActionName.toLowerCase() == 'on')
-									{
-										// Switch default actions names just in case sort them wrong.
-										onActionName = actionIDsForNames[actionIDs[1]];
-										offActionName = actionIDsForNames[actionIDs[0]];
-									}
-
-									platform.addAccessory(thisDeviceID, thisDeviceName, 'device', onActionName, offActionName, devicesAccessToken);
 								}
+								else
+									platform.logRequestErrorMessages('Get Devices', null, null, getDevicesBody);
 							}
-							else
-								platform.log("No Devices: You haven't added any Devices to Hook (" + devicesAccessToken + ").");
+							catch (jsonDevicesError)
+							{
+								platform.logRequestErrorMessages('Get Devices', jsonDevicesError, null, getDevicesBody);
+							}
 						}
 						else
 							platform.logRequestErrorMessages('Get Devices', getDevicesError, getDevicesResponse, getDevicesBody);
@@ -147,26 +188,34 @@ HookPlatform.prototype = {
 							platform.hookAPIbaseURL + 'groups/listing?token=' + devicesAccessToken,
 							function (getGroupsError, getGroupsResponse, getGroupsBody)
 						{
-							if (!getGroupsError && getGroupsResponse && getGroupsResponse.statusCode == 200 &&
-								getGroupsBody && !getGroupsBody.includes('"data":{"message":'))
+							if (!getGroupsError && getGroupsResponse && getGroupsResponse.statusCode == 200 && getGroupsBody)
 							{
-								var groupsAccessToken = getGroupsResponse.request.uri.href.split('token=')[1];
-								var groupIDMatches = getGroupsBody.match(/\{"groupId":"(.*?)",/g);
-
-								if (groupIDMatches && groupIDMatches.length > 0)
+								try
 								{
-									var groupNameMatches = getGroupsBody.match(/,"groupName":"(.*?)"}/g);
+									var groupsAccessToken = getGroupsResponse.request.uri.href.split('token=')[1];
 
-									for (var g = 0; g < groupIDMatches.length; g ++)
+									var groupsObject = JSON.parse(getGroupsBody);
+									var groupsList = groupsObject.data;
+									if (groupsList && Array.isArray(groupsList) && groupsList.length > 0)
 									{
-										var thisGroupID = groupIDMatches[g].substring(12).slice(0, -2);
-										var thisGroupName = groupNameMatches[g].substring(14).slice(0, -2);
+										for (var g = 0; g < groupsList.length; g ++)
+										{
+											var thisGroupObject = groupsList[g];
+											var thisGroupID = thisGroupObject.groupId;
+											var thisGroupName = thisGroupObject.groupName;
 
-										platform.addAccessory(thisGroupID, thisGroupName, 'groups', 'ON', 'OFF', groupsAccessToken);
+											platform.addAccessory(thisGroupID, thisGroupName, 'groups', 'ON', 'OFF', groupsAccessToken);
+										}
 									}
+									else if (groupsList === null)
+										platform.log("No Groups: You haven't created any Groups in Hook (" + groupsAccessToken + ").");
+									else
+										platform.logRequestErrorMessages('Get Groups', null, null, getGroupsBody);
 								}
-								else
-									platform.log("No Groups: You haven't created any Groups in Hook (" + groupsAccessToken + ").");
+								catch (jsonGroupsError)
+								{
+									platform.logRequestErrorMessages('Get Groups', jsonGroupsError, null, getGroupsBody);
+								}
 							}
 							else
 								platform.logRequestErrorMessages('Get Groups', getGroupsError, getGroupsResponse, getGroupsBody);
@@ -189,60 +238,66 @@ HookPlatform.prototype = {
 
 	addAccessory: function(accessoryID, accessoryName, accessoryType, onActionName, offActionName, accessToken)
 	{
-		var accessoryUUID = '"' + accessoryName + '" (' + accessoryID + ')';
 		var groupOrDevice = ((accessoryType == 'groups') ? 'Group' : 'Device');
 
-		if (this.hookAccessoryUUIDs.indexOf(accessoryUUID) == -1)
+		if (accessoryID && accessoryName)
 		{
-			var lowercaseNameWords = accessoryName.toLowerCase().split(' ');
+			var accessoryUUID = '"' + accessoryName + '" (' + accessoryID + ')';
 
-			var wordsForLight = ['lamp', 'light', 'lights', 'lighting'];
-			var defaultsToLight = false;
-			for (var w = 0; w < wordsForLight.length; w ++)
-				if (lowercaseNameWords.indexOf(wordsForLight[w]) > -1)
-				{
-					defaultsToLight = true;
-					break;
-				}
-
-			var defaultsToFan = (lowercaseNameWords.indexOf('fan') > -1);
-
-			var newAccessory = new HookAccessory([{
-				controlService: (defaultsToLight ? new Service.Lightbulb(accessoryName, accessoryType) :
-									(defaultsToFan ? new Service.Fan(accessoryName, accessoryType) :
-										new Service.Switch(accessoryName, accessoryType))),
-				characteristics: [Characteristic.On]
-			}]);
-
-			if (newAccessory != null)
+			if (this.hookAccessoryUUIDs.indexOf(accessoryUUID) == -1)
 			{
-				newAccessory.uuid_base = accessoryUUID;
-				newAccessory.name = accessoryName;
-				newAccessory.id = accessoryID;
-				newAccessory.type = accessoryType;
+				var lowercaseNameWords = accessoryName.toLowerCase().split(' ');
 
-				newAccessory.platform = this;
-				newAccessory.accessToken = accessToken;
+				var wordsForLight = ['lamp', 'light', 'lights', 'lighting'];
+				var defaultsToLight = false;
+				for (var w = 0; w < wordsForLight.length; w ++)
+					if (lowercaseNameWords.indexOf(wordsForLight[w]) > -1)
+					{
+						defaultsToLight = true;
+						break;
+					}
 
-				newAccessory.getServices = function() { return newAccessory.platform.getServices(newAccessory); };
+				var defaultsToFan = (lowercaseNameWords.indexOf('fan') > -1);
 
-				newAccessory.defaultsToLight = defaultsToLight;
-				newAccessory.onActionName = onActionName;
-				newAccessory.offActionName = offActionName;
+				var newAccessory = new HookAccessory([{
+					controlService: (defaultsToLight ? new Service.Lightbulb(accessoryName, accessoryType) :
+										(defaultsToFan ? new Service.Fan(accessoryName, accessoryType) :
+											new Service.Switch(accessoryName, accessoryType))),
+					characteristics: [Characteristic.On]
+				}]);
 
-				var modManSerNumFiller = 'Hook ' + groupOrDevice + ' (Homebridge)';
-				newAccessory.model = modManSerNumFiller;
-				newAccessory.manufacturer = modManSerNumFiller;
-				newAccessory.serialNumber = modManSerNumFiller;
+				if (newAccessory != null)
+				{
+					newAccessory.uuid_base = accessoryUUID;
+					newAccessory.name = accessoryName;
+					newAccessory.id = accessoryID;
+					newAccessory.type = accessoryType;
 
-				this.hookAccessories.push(newAccessory);
-				this.hookAccessoryUUIDs.push(accessoryUUID);
+					newAccessory.platform = this;
+					newAccessory.accessToken = accessToken;
 
-				this.log('Added Accessory: ' + groupOrDevice + ' ' + accessoryUUID);
+					newAccessory.getServices = function() { return newAccessory.platform.getServices(newAccessory); };
+
+					newAccessory.defaultsToLight = defaultsToLight;
+					newAccessory.onActionName = onActionName;
+					newAccessory.offActionName = offActionName;
+
+					var modManSerNumFiller = 'Hook ' + groupOrDevice + ' (Homebridge)';
+					newAccessory.model = modManSerNumFiller;
+					newAccessory.manufacturer = modManSerNumFiller;
+					newAccessory.serialNumber = modManSerNumFiller;
+
+					this.hookAccessories.push(newAccessory);
+					this.hookAccessoryUUIDs.push(accessoryUUID);
+
+					this.log('Added Accessory: ' + groupOrDevice + ' ' + accessoryUUID);
+				}
 			}
+			else
+				this.logRequestErrorMessages('Add Accessory', null, null, groupOrDevice + ' Already Added ' + accessoryUUID);
 		}
 		else
-			this.logRequestErrorMessages('Add Accessory', null, null, groupOrDevice + ' Already Added ' + accessoryUUID);
+			this.logRequestErrorMessages('Add Accessory', null, null, 'No ' + groupOrDevice + ' Name or ID');
 	},
 
 	bindCharacteristicEvents: function(characteristic, service, accessory)
@@ -292,25 +347,48 @@ HookPlatform.prototype = {
 
 	logRequestErrorMessages: function(errorTitle, errorObject, errorResponse, errorBody)
 	{
+		var loggedError = false;
+
 		if (errorObject)
+		{
 			this.log(errorTitle + ' ' + errorObject);
+			loggedError = true;
+		}
 
 		if (errorResponse && errorResponse.statusCode && errorResponse.statusCode != 200)
+		{
 			this.log(errorTitle + ' Error: Response Status Code ' + errorResponse.statusCode);
+			loggedError = true;
+		}
 		else if (errorBody)
 		{
-			if (errorBody == '{"return_value":"0"}')
-				this.log(errorTitle + ' Error: Failed to Set State (Return 0)');
-			else if (errorBody.includes('"data":{"message":'))
+			try
 			{
-				var bodyMessageMatches = errorBody.match(/\{"message":"(.*?)"}/g);
-
-				for (var m = 0; m < bodyMessageMatches.length; m ++)
-					this.log(errorTitle + ' Error: ' + bodyMessageMatches[m].substring(11).slice(0, -1));
+				var errorBodyObject = JSON.parse(errorBody);
+				if (errorBodyObject.return_value != undefined)
+				{
+					this.log(errorTitle + ' Error: Failed to Set State (Return ' + errorBodyObject.return_value + ')');
+					loggedError = true;
+				}
+				if (errorBodyObject.data && errorBodyObject.data.message)
+				{
+					this.log(errorTitle + ' Error: API Message "' + errorBodyObject.data.message + '"');
+					loggedError = true;
+				}
 			}
-			else
-				this.log(errorTitle + ' Error: ' + errorBody);
+			catch (notJsonError)
+			{
+				if (errorBody == 'null')
+					this.log(errorTitle + ' Error: No longer exists in Hook.');
+				else
+					this.log(errorTitle + ' Error: ' + errorBody);
+
+				loggedError = true;
+			}
 		}
+
+		if (!loggedError)
+			this.log(errorTitle + ' Error: UNKNOWN (' + errorObject + ' - ' + errorResponse + ' - ' + errorBody + ')');
 	},
 
 	getServices: function(accessory)
