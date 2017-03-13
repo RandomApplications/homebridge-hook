@@ -63,15 +63,22 @@ HookPlatform.prototype = {
 						allTokens.push(thisUserAccessToken);
 					}
 					else
+					{
 						platform.logRequestErrorMessages('Login', null, null, loginBody);
+						throw new Error('Could not load Hook (see previous errors). Crashing Homebridge intentionally to preserve HomeKit configuration. Homebridge must be relaunched.');
+					}
 				}
 				catch (jsonLoginError)
 				{
 					platform.logRequestErrorMessages('Login', jsonLoginError, null, loginBody);
+					throw new Error('Could not load Hook (see previous errors). Crashing Homebridge intentionally to preserve HomeKit configuration. Homebridge must be relaunched.');
 				}
 			}
 			else if (loginURL)
+			{
 				platform.logRequestErrorMessages('Login', loginError, loginResponse, loginBody);
+				throw new Error('Could not load Hook (see previous errors). Crashing Homebridge intentionally to preserve HomeKit configuration. Homebridge must be relaunched.');
+			}
 
 			loginURL = null; // Nullify local reference to login (containing username and password).
 
@@ -173,15 +180,22 @@ HookPlatform.prototype = {
 									}
 								}
 								else
+								{
 									platform.logRequestErrorMessages('Get Devices', null, null, getDevicesBody);
+									throw new Error('Could not load Hook (see previous errors). Crashing Homebridge intentionally to preserve HomeKit configuration. Homebridge must be relaunched.');
+								}
 							}
 							catch (jsonDevicesError)
 							{
 								platform.logRequestErrorMessages('Get Devices', jsonDevicesError, null, getDevicesBody);
+								throw new Error('Could not load Hook (see previous errors). Crashing Homebridge intentionally to preserve HomeKit configuration. Homebridge must be relaunched.');
 							}
 						}
 						else
+						{
 							platform.logRequestErrorMessages('Get Devices', getDevicesError, getDevicesResponse, getDevicesBody);
+							throw new Error('Could not load Hook (see previous errors). Crashing Homebridge intentionally to preserve HomeKit configuration. Homebridge must be relaunched.');
+						}
 
 						platform.log('Loading Groups for ' + devicesAccessToken + '...');
 						request(
@@ -210,15 +224,22 @@ HookPlatform.prototype = {
 									else if (groupsList === null)
 										platform.log("No Groups: You haven't created any Groups in Hook (" + groupsAccessToken + ").");
 									else
+									{
 										platform.logRequestErrorMessages('Get Groups', null, null, getGroupsBody);
+										throw new Error('Could not load Hook (see previous errors). Crashing Homebridge intentionally to preserve HomeKit configuration. Homebridge must be relaunched.');
+									}
 								}
 								catch (jsonGroupsError)
 								{
 									platform.logRequestErrorMessages('Get Groups', jsonGroupsError, null, getGroupsBody);
+									throw new Error('Could not load Hook (see previous errors). Crashing Homebridge intentionally to preserve HomeKit configuration. Homebridge must be relaunched.');
 								}
 							}
 							else
+							{
 								platform.logRequestErrorMessages('Get Groups', getGroupsError, getGroupsResponse, getGroupsBody);
+								throw new Error('Could not load Hook (see previous errors). Crashing Homebridge intentionally to preserve HomeKit configuration. Homebridge must be relaunched.');
+							}
 
 							loadedTokens ++;
 							if (loadedTokens == allTokens.length)
